@@ -1,0 +1,152 @@
+import pandas as pd
+
+
+########### PON COVERAGE ######################################
+def get_chrom_list(config):
+    '''
+    returns a list of all valid chromosomes determined by build version
+    '''
+
+    def get_chrom(c, use_chr=True):
+        if c > 21:
+            if c == 22:
+                chrom = "X"
+            if c == 23:
+                chrom = "Y"
+        else:
+            chrom = c + 1
+        return f"chr{chrom}" if use_chr else str(chrom)
+
+    # switch for use of "chr"-prefix
+    is_hg38 = True
+
+    chrom_list = [get_chrom(chrom, is_hg38) for chrom in range(23)]  ### for including Y use 24!!!
+    return chrom_list
+
+###################### SAMPLES #################################
+
+def get_bam_files(folder_list, sample_sheet):
+    '''
+    retrieves the path to all the files in the sample_sheet
+    if rerun == False, it looks for fastq files
+    if rerun == True, it looks for bam files
+    '''
+
+    # check whether single folder or folder list
+    if len(folder_list[0]) == 1:
+        folder_list = [folder_list]
+
+    # import the sample sheet
+    samples = pd.read_csv(sample_sheet, sep='\t', names=['name']).set_index('name', drop=False)
+
+    # for fastq files
+    bam_list = []
+    short_list = []
+    # cycle through the input folders and look for matching bam files
+    for input_folder in folder_list:
+        print(f"Looking for bam files in {input_folder}")
+        for folder, _, files in os.walk(input_folder):
+            for file in files:
+                if '.bam' in file and '.md5' not in file and '.bai' not in file:
+                    bam_list.append(os.path.join(folder, file))
+                    short_list.append(file)
+    
+
+    # include check for empty list
+    def get_bam_paths(row, bam_list=None):
+        '''
+        go through the sample list and find the respective read and index bams in the respective bam_list
+        '''
+
+        for file in bam_list:
+            # get the basename
+            base_file = os.path.basename(file)
+            if row.name in base_file and not "chr" in base_file:
+                row['path'] = file
+        return row
+
+    samples_df = samples.apply(get_bam_paths, axis=1, bam_list=bam_list)
+    short_df = samples.apply(get_bam_paths, axis=1, bam_list=short_list)
+
+    # # remove leading zeros
+    # samples_df.index = samples_df.index.str.lstrip('0')
+    # short_df.index = short_df.index.str.lstrip('0')
+    # ########## DEBUG #################
+    # print(short_df)
+    # print(samples_df)
+    # ##################################
+
+    return samples_df
+
+def get_bam_path(w):
+    '''
+    returns the path to the target bam from the sample_df (global var)
+    '''
+    sample = f"{w.sample}_{w.type}"
+
+    return sample_df.loc[sample,'path']
+
+
+def get_script(script_name):
+    return os.path.join(config['snakedir'], config['scripts'][script_name])
+
+
+
+def full_path(file):
+
+    '''
+    returns the full path to a reference
+    '''
+
+    return os.path.join(config['paths']['mystatic'], config['ref'][file])
+
+
+def static_path(file):
+    '''
+    returns the absolute path when given relative to static folder
+    '''
+
+    return os.path.join(config['paths']['mystatic'], file)
+
+
+############## BCF tools ########################################
+def get_pileup_input(w):
+    '''
+    if input is normal, returns normal bam_path and bed_file
+    if input is tumor, returns tumor bam_path and the output of bcftools_query for the normal file
+    '''
+    if w.type in config['samples']['normal']:
+        input_dict = dict(
+            bam=get_bam_path(w),
+            regions=full_path('bed_file')
+        )
+    # sample is tumor
+    else:
+        input_dict = dict(
+            bam=get_bam_path(w),
+            regions=get_normal_pos(w)
+        )
+    return input_dict
+
+
+def get_normal_pos(w):
+    '''
+    returns for a tumor file the corresponding normal pos file
+'   '''
+    return f"pos/{w.sample}_{config['samples']['normal'][0]}.pos.gz"
+
+
+def get_query_input(w):
+    if w.type in config['samples']['normal']:
+        return f"calls/{w.sample}_{w.type}.calls.bcf"
+    else:
+        return f"pileup/{w.sample}_{w.type}.pileup.bcf"
+
+
+def get_query_format(w):
+    return "--format '%CHROM\t%POS\n'" if w.type in config['samples']['normal'] else "--format \"%CHROM\\t%POS\\t[%AD{0}]\\t[%AD{1}]\\n\""
+
+def get_anno(w):
+    if w.type in config['samples']['normal']:
+        return ""
+    return  " --annotate FORMAT/AD"

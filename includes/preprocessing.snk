@@ -1,0 +1,48 @@
+rule bcftools_mpileup:
+    input:
+        unpack(get_pileup_input)
+    output:
+        pileup="pileup/{sample}_{type}.pileup.bcf",
+    params:
+        ref = full_path('genome'),
+        qual = f"-q {config['preprocessing']['MAPQ']} -Q {config['preprocessing']['Q']}",
+        max_depth = config['preprocessing']['max_depth'],
+        anno = get_anno
+    threads:
+        config['preprocessing']['threads']
+    conda:
+        "../env/bcf-env.yaml"
+    shell:
+        "bcftools mpileup {params.qual} -d {params.max_depth} -f {params.ref}"
+        " -R {input.regions}{params.anno} --threads {threads} -o {output.pileup} {input.bam}"
+
+
+rule bcftools_call:
+    input:
+        pileup="pileup/{sample}_{type}.pileup.bcf",
+    output:
+        call="calls/{sample}_{type}.calls.bcf",
+    conda:
+        "../env/bcf-env.yaml"   # valid options include -c/--consensus-caller or -m/--multiallelic-caller
+    threads:
+        config['preprocessing']['threads']
+    params:
+        caller="-m"
+    shell:
+        "bcftools call -v -Ob {params.caller} --threads {threads} -o {output.call} {input.pileup}"        
+
+
+rule bcftools_query:
+    input: 
+        get_query_input
+    output: 
+        "pos/{sample}_{type}.pos.gz"
+    conda:
+        "../env/bcf-env.yaml"
+    threads:
+        config['preprocessing']['threads']
+    params:
+        pig_threads = int(config['preprocessing']['threads']) - 1,
+        format =  get_query_format  # optional parameters for bcftools query (except -o)
+    shell:
+        "bcftools query {params.format} {input} | pigz -cp {params.pig_threads} > {output}"
