@@ -21,17 +21,21 @@ print(sample_df)
 
 # ############ INCLUDES ##############################  
 include: "includes/preprocessing.snk"
+include: "includes/ascat.snk"
 
 # specified wildcards have to match the regex
 wildcard_constraints:
     # eg sample cannot contain _ or / to prevent ambiguous wildcards
-    sample = "[^/.]+"
+    sample = "[^/._]+",
+    tumor = "[AR]",
+    normal = "B"
 
 # ############## MASTER RULE ##############################################
 
 rule all:
     input:
-        expand("pos/{sample}.pos.gz", sample=sample_df.index)
+        expand("pos/{sample}.pos.gz", sample=sample_df.index),
+        expand("cnv/{sample}/{sample}-B.png", sample=[s for s in sample_df.index if s.split("_")[1] not in config['samples']['normal']])
 
 ###########################################################################
 

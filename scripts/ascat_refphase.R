@@ -1,34 +1,24 @@
-# ==============================================================================
-# refphase_workflow.R
-#
-# Author: Raphael Hablesreiter (raphael.hablesreiter@charite.de)
-#
-# Adapted from Matt Huska (AG Schwarz - MDC Berlin)
+
 #
 # Description:
 # General refphase workflow for detecting SCNA in tumor samples.
 # See https://bitbucket.org/schwarzlab/refphase/src/master/ for further details.
-#
-# ==============================================================================
+# Adapted from Matt Huska (AG Schwarz - MDC Berlin)
 
-# ------------------------------------------------------------------------------
-# Libraries
-# ------------------------------------------------------------------------------
+## create conda environment using the env file R-env.yaml
+# conda env create -n R-env -f ../env/R-env.yaml
+## Install refphase from R
+# cd scripts; R
+# > library(devtools)
+# > devtools::install("refphase")
 
-## Install refphase
-# git clone git@bitbucket.org:schwarzlab/rphase.git refphase
-# library(devtools)
-# devtools::install_local("refphase")
-
-library(readr)
+############# IMPORTS ######################
+library(tidyverse)
 library(gtools)
 library(ASCAT)
 library(refphase)
-library(dplyr)
 
-# ------------------------------------------------------------------------------
-# Functions
-# ------------------------------------------------------------------------------
+############# CUSTOM FUNCTIONS #################
 
 chrom2integer <- function(x) {
     print(unique(x))
@@ -37,25 +27,17 @@ chrom2integer <- function(x) {
                          gsub("Y", "24", gsub("chr", "", x)))))
 }
 
-# ------------------------------------------------------------------------------
-# Global parameters
-# ------------------------------------------------------------------------------
+tumor_sample <- snakemake@input[["tumor"]]
+normal_sample <- snakemake@input[["normal"]]
+params <- snakemake@params
+cutoff <- params[['cutoff']]
 
-# directory for results
-work_dir = ""
-
-# directory of input files
-file_dir = ""
-
-# get patients
-patients <- unlist(strsplit(list.files(path = file_dir), "-"))
-patients <- unique(patients[grep("AML", patients)])
 
 # cut-off for homzygous SNPs
-cutoff = 0.4
+cutoff <- params[['cutoff']]
 
-# gender; can be the same for first try
-gender = "XY"
+# gender; can be the same for first try (XY)
+gender <- params[['gender']]
 
 for (pat_tmp in patients)
 {

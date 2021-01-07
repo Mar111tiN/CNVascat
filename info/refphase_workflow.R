@@ -81,7 +81,7 @@ for (pat_tmp in patients)
     colnames(normal) <- column_names
     
     for (tumor_sample in tumor_samples) {
-        
+    
         tumor <- as.data.frame(read.csv(paste0(file_dir, "/", tumor_sample, ".pos.gz"), 
                                         sep = "\t", header = FALSE,
                                         stringsAsFactors = FALSE))
@@ -139,7 +139,7 @@ for (pat_tmp in patients)
                                sample = merged$baf_tumor, 
                                row.names = rownames(merged)), 
                     file = paste0(tumor_sample, "_baf_tumor.tsv"), sep = "\t", 
-                    quote = FALSE, row.names = TRUE, col.names = NA)
+                    quote = FALSE, row.names = TRUq()E, col.names = NA)
         
         # Tumor
         dat <- data.frame(chrs = merged$chrom, pos = merged$pos, 

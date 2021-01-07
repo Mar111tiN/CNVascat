@@ -1,0 +1,14 @@
+rule ascat:
+    input: 
+        tumor = "pos/{sample}_{tumor}.pos.gz",
+        normal = "pos/{sample}_{normal}.pos.gz"
+    output: 
+        "cnv/{sample}/{sample}_{tumor}-{normal}.png"
+    conda:
+        "../env/R-env.yaml"
+    threads:
+        1
+    params:
+        cutoff = config['ascat']['cutoff']
+    script:
+        "../scripts/ascat_refphase.R" 

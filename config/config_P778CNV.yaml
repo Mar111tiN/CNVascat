@@ -32,3 +32,8 @@ preprocessing:
     MAPQ: 20   # I guess this should be lower than the mapping quality used for mpileup or not?
     Q: 25
     max_depth: 8000
+ascat:
+    cutoff: 0.4
+    gender: XY
+refphase:
+    cutoff: 0.4
