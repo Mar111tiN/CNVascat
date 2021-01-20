@@ -82,7 +82,13 @@ def get_bam_path(w):
     '''
     returns the path to the target bam from the sample_df (global var)
     '''
-    sample = f"{w.sample}_{w.type}"
+    if w.get('type', None):
+        t = w.type
+    elif w.get('tumor', None):
+        t = w.tumor
+    elif w.get('normal', None):
+        t = w.normal
+    sample = f"{w.sample}_{t}"
 
     return sample_df.loc[sample,'path']
 
@@ -109,44 +115,9 @@ def static_path(file):
     return os.path.join(config['paths']['mystatic'], file)
 
 
-############## BCF tools ########################################
-def get_pileup_input(w):
-    '''
-    if input is normal, returns normal bam_path and bed_file
-    if input is tumor, returns tumor bam_path and the output of bcftools_query for the normal file
-    '''
-    if w.type in config['samples']['normal']:
-        input_dict = dict(
-            bam=get_bam_path(w),
-            regions=full_path('bed_file')
-        )
-    # sample is tumor
-    else:
-        input_dict = dict(
-            bam=get_bam_path(w),
-            regions=get_normal_pos(w)
-        )
-    return input_dict
-
-
 def get_normal_pos(w):
     '''
     returns for a tumor file the corresponding normal pos file
 '   '''
-    return f"pos/{w.sample}_{config['samples']['normal'][0]}.pos.gz"
-
-
-def get_query_input(w):
-    if w.type in config['samples']['normal']:
-        return f"calls/{w.sample}_{w.type}.calls.bcf"
-    else:
-        return f"pileup/{w.sample}_{w.type}.pileup.bcf"
-
-
-def get_query_format(w):
-    return "--format '%CHROM\t%POS\n'" if w.type in config['samples']['normal'] else "--format \"%CHROM\\t%POS\\t[%AD{0}]\\t[%AD{1}]\\n\""
-
-def get_anno(w):
-    if w.type in config['samples']['normal']:
-        return ""
-    return  " --annotate FORMAT/AD"
+    t = f"chrompos/{w.sample}_{config['samples']['normal'][0]}.{w.chrom}.pos.gz"
+    return t

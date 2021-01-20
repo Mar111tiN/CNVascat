@@ -1,48 +1,55 @@
-rule bcftools_mpileup:
-    input:
-        unpack(get_pileup_input)
-    output:
-        pileup="pileup/{sample}_{type}.pileup.bcf",
+rule query_normal:
+    input: 
+        bam=get_bam_path
+    output: 
+        pos="chrompos/{sample}_{normal}.{chrom}.pos.gz"
+    conda:
+        "../env/bcf-env.yaml"
+    threads:
+        config['pre']['threads']['normal']
     params:
         ref = full_path('genome'),
-        qual = f"-q {config['preprocessing']['MAPQ']} -Q {config['preprocessing']['Q']}",
-        max_depth = config['preprocessing']['max_depth'],
-        anno = get_anno
-    threads:
-        config['preprocessing']['threads']
-    conda:
-        "../env/bcf-env.yaml"
+        qual = f"-q {config['pre']['MAPQ']} -Q {config['pre']['Q']}",
+        max_depth = config['pre']['max_depth'],
+        regions = lambda w: f"<(cat {full_path('bed_file')} | mawk '$0 ~ /^{w.chrom}\\t/')",
+        t = int(config['pre']['threads']['normal'] / 3),  # divide the threads between the processes
+        tpigz = math.ceil(config['pre']['threads']['normal'] / 3) - 1,
     shell:
         "bcftools mpileup {params.qual} -d {params.max_depth} -f {params.ref}"
-        " -R {input.regions}{params.anno} --threads {threads} -o {output.pileup} {input.bam}"
+        " -R {params.regions} --threads {params.t} {input.bam} | "
+        "bcftools call -v -Ob -m --threads {params.t} - | "
+        "bcftools query --format \"%CHROM\\t%POS\\n\" - | pigz -cp {params.tpigz} > {output.pos}"
 
 
-rule bcftools_call:
-    input:
-        pileup="pileup/{sample}_{type}.pileup.bcf",
-    output:
-        call="calls/{sample}_{type}.calls.bcf",
-    conda:
-        "../env/bcf-env.yaml"   # valid options include -c/--consensus-caller or -m/--multiallelic-caller
-    threads:
-        config['preprocessing']['threads']
-    params:
-        caller="-m"
-    shell:
-        "bcftools call -v -Ob {params.caller} --threads {threads} -o {output.call} {input.pileup}"        
-
-
-rule bcftools_query:
+rule query_tumor:
     input: 
-        get_query_input
+        bam=get_bam_path,
+        regions=get_normal_pos
     output: 
-        "pos/{sample}_{type}.pos.gz"
+        pos="chrompos/{sample}_{tumor}.{chrom}.pos.gz"
     conda:
         "../env/bcf-env.yaml"
     threads:
-        config['preprocessing']['threads']
+        config['pre']['threads']['tumor']
     params:
-        pig_threads = int(config['preprocessing']['threads']) - 1,
-        format =  get_query_format  # optional parameters for bcftools query (except -o)
+        ref = full_path('genome'),
+        qual = f"-q {config['pre']['MAPQ']} -Q {config['pre']['Q']}",
+        max_depth = config['pre']['max_depth'],
+        tpile = int(config['pre']['threads']['tumor'] / 2),   # divide the threads between the processes
+        tpigz = math.ceil(config['pre']['threads']['tumor'] / 2) - 1
     shell:
-        "bcftools query {params.format} {input} | pigz -cp {params.pig_threads} > {output}"
+        "bcftools mpileup {params.qual} -d {params.max_depth} -f {params.ref} "
+        "-R {input.regions} --annotate FORMAT/AD --threads {params.tpile} {input.bam} | "
+        "bcftools query --format \"%CHROM\\t%POS\\t[%AD{{0}}]\\t[%AD{{1}}]\\n\" - | "
+        "pigz -cp {params.tpigz} > {output.pos}"
+
+
+rule combine_query:
+    input:
+        expand("chrompos/{{sample}}_{{type}}.{chrom}.pos.gz", chrom=chrom_list)
+    output:
+        pos = "pos/{sample}_{type}.pos.gz"
+    threads:
+        2
+    script:
+        "../scripts/combine_query.py"

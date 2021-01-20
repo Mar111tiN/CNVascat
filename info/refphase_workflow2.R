@@ -1,13 +1,13 @@
 # ==============================================================================
-# refphase_workflow.R
+# rPhase_GeneralWorkflow.R
 #
 # Author: Raphael Hablesreiter (raphael.hablesreiter@charite.de)
 #
 # Adapted from Matt Huska (AG Schwarz - MDC Berlin)
 #
 # Description:
-# General refphase workflow for detecting SCNA in tumor samples.
-# See https://bitbucket.org/schwarzlab/refphase/src/master/ for further details.
+# General rPhase workflow for detecting SCNA in tumor samples.
+# See https://bitbucket.org/schwarzlab/rphase/src/master/ for further details.
 #
 # ==============================================================================
 
@@ -15,10 +15,8 @@
 # Libraries
 # ------------------------------------------------------------------------------
 
-## Install refphase
-# git clone git@bitbucket.org:schwarzlab/rphase.git refphase
 # library(devtools)
-# devtools::install_local("refphase")
+# devtools::install_bitbucket("schwarzlab/rphase")
 
 library(readr)
 library(gtools)
@@ -37,26 +35,30 @@ chrom2integer <- function(x) {
                          gsub("Y", "24", gsub("chr", "", x)))))
 }
 
+
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
 # ------------------------------------------------------------------------------
 # Global parameters
 # ------------------------------------------------------------------------------
 
-# directory for results
-work_dir = ""
+work_dir = "/Users/raphaelhablesreiter/Projects/2020_CBF/20200916/result"
+file_dir = "/Users/raphaelhablesreiter/Projects/2020_CBF/20200916/input"
 
-# directory of input files
-file_dir = ""
+# bed_file = "/Users/raphaelhablesreiter/Projects/2020_Test_rPhase/SS_HAEv6r2_hg38_Covered_nochr.bed"
+# bed_file <- read.table(bed_file, header = FALSE, stringsAsFactors = FALSE) 
+# bed_file <- bed_file[,c(1:3)]
+# colnames(bed_file) <- c("chr", "start", "end")
 
-# get patients from the file list
 patients <- unlist(strsplit(list.files(path = file_dir), "-"))
 patients <- unique(patients[grep("AML", patients)])
 
-# cut-off for homzygous SNPs
 cutoff = 0.4
-
-# gender; can be the same for first try
-gender = "XY"
-
+minreads_normal = 50
+minreads_tumor = 50
+gender = "XX"
+patients = c("0604_135")
+pat_tmp = patients
 for (pat_tmp in patients)
 {
     # ------------------------------------------------------------------------------
@@ -65,6 +67,9 @@ for (pat_tmp in patients)
     patient = pat_tmp
     normal_sample = paste0(pat_tmp, "-CR1")
     tumor_samples <- c(paste0(pat_tmp, "-D"), paste0(pat_tmp, "-Rel1"))
+    
+    
+    # tumor_samples <- c(paste0(pat_tmp, "_Rel1"))
         
     dir.create(paste0(work_dir, "/", patient))
     setwd(paste0(work_dir, "/", patient))
@@ -80,19 +85,71 @@ for (pat_tmp in patients)
                                      stringsAsFactors = FALSE))
     colnames(normal) <- column_names
     
-    for (tumor_sample in tumor_samples) {
+    # Removal of insertion 
+    no_snp <- paste0(normal$chrom, "_", normal$pos)
+    normal <- normal[no_snp %!in% no_snp[duplicated(no_snp)],]
+
+    # Remove low quality SNPs
+    normal <- normal[normal$ref + normal$alt > minreads_normal,]
     
+    # Checks if in a window of 100bp are more than 2 SNPs and removes them
+    filter <- as.data.frame(matrix(ncol = 2))
+    colnames(filter) <- c("chrom", "pos")
+    for (chrom in unique(normal$chrom))
+    {
+        print(chrom)
+        tmp <- normal[normal$chrom %in% chrom,2]
+        call_start <- NA
+        call_end <- NA
+        
+        for (i in 1:length(tmp)){
+            call_start <- c(call_start, seq(-99,0) + tmp[i])
+            call_end <- c(call_end, seq(0,99) + tmp[i])
+        }
+        
+        windows <- as.data.frame(unique(list(call_start, call_end)))
+        windows <- windows[-1,]
+        tmp_out <- ""
+        
+        for (i in 1:nrow(windows)){
+            tmp_snps <- tmp[tmp > windows[i,1] & tmp < windows[i,2]]
+            if (length(tmp_snps) > 2){
+                tmp_out <- c(tmp_out, tmp_snps)
+            }
+        }
+       
+        tmp_out <- unique(tmp_out)
+        tmp_chrom <- rep(chrom, length(tmp_out))
+        
+        tmp_filter <- as.data.frame(cbind(tmp_chrom, tmp_out))
+        colnames(tmp_filter) <-c("chrom", "pos")
+        
+        filter <- rbind(filter, tmp_filter)
+    }
+    
+    normal <- normal[paste0(normal$chrom,normal$pos) %!in% paste0(filter$chrom,filter$pos),]
+    
+
+    
+    for (tumor_sample in tumor_samples) {
+        
         tumor <- as.data.frame(read.csv(paste0(file_dir, "/", tumor_sample, ".pos.gz"), 
                                         sep = "\t", header = FALSE,
                                         stringsAsFactors = FALSE))
         colnames(tumor) <- column_names
+        
+        no_snp <- paste0(tumor$chrom, "_", tumor$pos)
+        tumor <- tumor[no_snp %!in% no_snp[duplicated(no_snp)],]
+        
+        # Filter low quality SNPs
+        tumor <- tumor[tumor$ref + tumor$alt > minreads_tumor,]
+        
         
         merged <- merge(normal, tumor, by = c("chrom", "pos"), 
                         suffixes = c("_normal", "_tumor"))
         
         merged$pos <- as.integer(merged$pos)
         merged <- merged[order(chrom2integer(merged$chrom), merged$pos), ]
-        
         
         total_reads_tumor <- sum(merged$alt_tumor, na.rm = TRUE) + 
             sum(merged$ref_tumor, na.rm = TRUE)
@@ -139,7 +196,7 @@ for (pat_tmp in patients)
                                sample = merged$baf_tumor, 
                                row.names = rownames(merged)), 
                     file = paste0(tumor_sample, "_baf_tumor.tsv"), sep = "\t", 
-                    quote = FALSE, row.names = TRUq()E, col.names = NA)
+                    quote = FALSE, row.names = TRUE, col.names = NA)
         
         # Tumor
         dat <- data.frame(chrs = merged$chrom, pos = merged$pos, 
@@ -168,8 +225,6 @@ for (pat_tmp in patients)
                                      segmentation = paste0(tumor_samples, "_rphase_segs.tsv"), 
                                      snps = paste0(tumor_samples, "_rphase_snps.tsv"), 
                                      purity = NA, ploidy = NA, row.names = tumor_samples)
-
-    # ASCAT penalty default=25, can be changed to 75 if no result can be found
     ascat_penalty <- c(25,25)
     for (tumor_sample in tumor_samples) {
         ascat_bc <- ascat.loadData(Tumor_LogR_file = paste0(tumor_sample, "_logr_tumor.tsv"),
@@ -177,13 +232,12 @@ for (pat_tmp in patients)
                                    Germline_LogR_file = paste0(tumor_sample, "_logr_normal.tsv"),
                                    Germline_BAF_file = paste0(tumor_sample, "_baf_normal.tsv"),
                                    gender = gender) 
-
+        # ascat_bc <- ascat.GCcorrect(ascat_bc, GCcontentfile =
+        #                                 paste0(file_dir, "/", patient, ".GCcontent.txt"))
         ascat.plotRawData(ascat_bc)
-        
-        # ascat.ascpf can be executed with a fixed x and y value
         if (tumor_sample == tumor_samples[1])
         {
-            ascat_bc <- ascat.aspcf(ascat_bc, penalty = ascat_penalty[1]) 
+            ascat_bc <- ascat.aspcf(ascat_bc, penalty = ascat_penalty[1])
         } else {
             ascat_bc <- ascat.aspcf(ascat_bc, penalty = ascat_penalty[2])
         }

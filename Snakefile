@@ -1,5 +1,6 @@
 import yaml
 import os
+import math
 import pandas as pd
 
 # ############ SETUP ##############################
@@ -28,14 +29,15 @@ wildcard_constraints:
     # eg sample cannot contain _ or / to prevent ambiguous wildcards
     sample = "[^/._]+",
     tumor = "[AR]",
-    normal = "B"
+    normal = "B",
+    type = "[^/._]+"
 
 # ############## MASTER RULE ##############################################
 
 rule all:
     input:
         expand("pos/{sample}.pos.gz", sample=sample_df.index),
-        expand("cnv/{sample}/{sample}-B.png", sample=[s for s in sample_df.index if s.split("_")[1] not in config['samples']['normal']])
+        # expand("cnv/{sample}/{sample}-B.png", sample=[s for s in sample_df.index if s.split("_")[1] not in config['samples']['normal']])
 
 ###########################################################################
 

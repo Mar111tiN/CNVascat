@@ -3,7 +3,7 @@ rule ascat:
         tumor = "pos/{sample}_{tumor}.pos.gz",
         normal = "pos/{sample}_{normal}.pos.gz"
     output: 
-        "cnv/{sample}/{sample}_{tumor}-{normal}.png"
+        "cnv/{sample}_{tumor}/{sample}_{tumor}-{normal}.png"
     conda:
         "../env/R-env.yaml"
     threads:

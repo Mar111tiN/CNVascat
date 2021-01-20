@@ -27,8 +27,10 @@ ref:
 cleanup: False
 chrom_with_chr: true # whether bam files contain chr in name
 # RULES
-preprocessing:
-    threads: 8
+pre:
+    threads: 
+        normal: 20
+        tumor: 12
     MAPQ: 20   # I guess this should be lower than the mapping quality used for mpileup or not?
     Q: 25
     max_depth: 8000
