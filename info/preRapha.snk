@@ -48,6 +48,7 @@ rule bcftools_query_germline:
     wrapper:
         "file:wrappers/bcftools/query"
 
+
 rule bcftools_mpileup_samples:
     input:
         index="refs/genome.fasta.fai",

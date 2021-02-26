@@ -18,11 +18,11 @@
     "name": "{rule}:{wildcards.sample}.{wildcards.tumor}.{wildcards.chrom}"
   },
   "combine_query": {
-    "t": "00:10",
+    "t": "00:05",
     "mem": 2000,
   },
   "ascat": {
-    "t": "00:300",
+    "t": "00:30",
     "mem": 2000,
     "name": "{rule}:{wildcards.sample}"
   }

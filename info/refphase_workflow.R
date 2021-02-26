@@ -65,7 +65,8 @@ for (pat_tmp in patients)
     patient = pat_tmp
     normal_sample = paste0(pat_tmp, "-CR1")
     tumor_samples <- c(paste0(pat_tmp, "-D"), paste0(pat_tmp, "-Rel1"))
-        
+    
+    # create one folder per sample
     dir.create(paste0(work_dir, "/", patient))
     setwd(paste0(work_dir, "/", patient))
     
@@ -86,6 +87,8 @@ for (pat_tmp in patients)
                                         sep = "\t", header = FALSE,
                                         stringsAsFactors = FALSE))
         colnames(tumor) <- column_names
+        
+
         
         merged <- merge(normal, tumor, by = c("chrom", "pos"), 
                         suffixes = c("_normal", "_tumor"))

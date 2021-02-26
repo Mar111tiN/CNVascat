@@ -15,21 +15,18 @@ def main(s):
     cc = c["ascat"]
 
     show_output(
-        f"Collecting chromosomal position data for {w.sample}_{w.type}",
+        f"Combining {i.tumor} and {i.normal}",
         time=True,
     )
-    pos_dfs = []
-    for pos_file in i:
-        pos_df = pd.read_csv(
-            pos_file,
-            sep="\t",
-            header=None,
-            names=["chrom", "pos", "ref", "alt"],
-        )
-        pos_dfs.append(pos_df)
 
-    allpos_df = pd.concat(pos_dfs)
-    allpos_df.to_csv(o.pos, sep="\t", index=False, compression="gzip")
+    # get tumor and normal posfile into df
+    tumor_df = pd.read_csv(i.tumor, sep="\t")
+    normal_df = pd.read_csv(i.tumor, sep="\t")
+
+    merged_df = tumor_df.merge(normal_df, on=["chrom", "pos"], suffixes=("_T", "_N"))
+    merged_df["pos"] = merged_df["pos"].astype(int)
+
+    results_df.to_csv(o.pos, sep="\t", index=False)
 
     show_output(
         f"Finished combining data for {w.sample}_{w.type}. Written to {o.pos}",

@@ -29,13 +29,21 @@ chrom_with_chr: true # whether bam files contain chr in name
 # RULES
 pre:
     threads: 
-        normal: 20
-        tumor: 12
+        normal: 16
+        tumor: 10
     MAPQ: 20   # I guess this should be lower than the mapping quality used for mpileup or not?
     Q: 25
     max_depth: 8000
 ascat:
     cutoff: 0.4
-    gender: XY
+    min_reads: 50
+    snp_window_size: 100
+    max_snps_in_window: 2
+    gender: XX
+    ascat_penalty: 25
+    gamma: 1
+    calculate_normal: False
 refphase:
-    cutoff: 0.4
+    merge_min_width: 1e+06
+    max_merge_width: 1e+06
+    gap_fill_width: 2e+06

@@ -3,12 +3,10 @@ rule ascat:
         tumor = "pos/{sample}_{tumor}.pos.gz",
         normal = "pos/{sample}_{normal}.pos.gz"
     output: 
-        "cnv/{sample}_{tumor}/{sample}_{tumor}-{normal}.png"
+        "cnv/{sample}_{tumor}/{sample}_{tumor}-{normal}_refphase_genome.pdf"
     conda:
         "../env/R-env.yaml"
     threads:
         1
-    params:
-        cutoff = config['ascat']['cutoff']
     script:
         "../scripts/ascat_refphase.R" 

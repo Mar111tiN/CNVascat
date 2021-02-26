@@ -37,7 +37,8 @@ wildcard_constraints:
 rule all:
     input:
         expand("pos/{sample}.pos.gz", sample=sample_df.index),
-        # expand("cnv/{sample}/{sample}-B.png", sample=[s for s in sample_df.index if s.split("_")[1] not in config['samples']['normal']])
+        # quick fix for tumor-normal pairs
+        expand("cnv/{sample}/{sample}-B_refphase_genome.pdf", sample=[s for s in sample_df.index if s.split("_")[1] not in config['samples']['normal']])
 
 ###########################################################################
 

@@ -2,7 +2,7 @@ rule query_normal:
     input: 
         bam=get_bam_path
     output: 
-        pos="chrompos/{sample}_{normal}.{chrom}.pos.gz"
+        pos="chrompos/{sample}_{normal}.{chrom}.pos"
     conda:
         "../env/bcf-env.yaml"
     threads:
@@ -12,13 +12,13 @@ rule query_normal:
         qual = f"-q {config['pre']['MAPQ']} -Q {config['pre']['Q']}",
         max_depth = config['pre']['max_depth'],
         regions = lambda w: f"<(cat {full_path('bed_file')} | mawk '$0 ~ /^{w.chrom}\\t/')",
-        t = int(config['pre']['threads']['normal'] / 3),  # divide the threads between the processes
-        tpigz = math.ceil(config['pre']['threads']['normal'] / 3) - 1,
+        t1 = math.floor(config['pre']['threads']['normal'] / 2),  # divide the threads between the processes
+        t2 = math.ceil(config['pre']['threads']['normal'] / 2) - 1  # divide the threads between the processes
     shell:
         "bcftools mpileup {params.qual} -d {params.max_depth} -f {params.ref}"
-        " -R {params.regions} --threads {params.t} {input.bam} | "
-        "bcftools call -v -Ob -m --threads {params.t} - | "
-        "bcftools query --format \"%CHROM\\t%POS\\n\" - | pigz -cp {params.tpigz} > {output.pos}"
+        " -R {params.regions} --annotate FORMAT/AD --threads {params.t1} {input.bam} | "
+        "bcftools call -v -Ob -m --threads {params.t2} - | "
+        "bcftools query --format \"%CHROM\\t%POS\\t[%AD{{0}}]\\t[%AD{{1}}]\\n\" - > {output.pos}"
 
 
 rule query_tumor:
@@ -26,7 +26,7 @@ rule query_tumor:
         bam=get_bam_path,
         regions=get_normal_pos
     output: 
-        pos="chrompos/{sample}_{tumor}.{chrom}.pos.gz"
+        pos="chrompos/{sample}_{tumor}.{chrom}.pos"
     conda:
         "../env/bcf-env.yaml"
     threads:
@@ -35,18 +35,18 @@ rule query_tumor:
         ref = full_path('genome'),
         qual = f"-q {config['pre']['MAPQ']} -Q {config['pre']['Q']}",
         max_depth = config['pre']['max_depth'],
-        tpile = int(config['pre']['threads']['tumor'] / 2),   # divide the threads between the processes
-        tpigz = math.ceil(config['pre']['threads']['tumor'] / 2) - 1
+        # reduce normal regions to chr and pos
+        regions = lambda _,input: f"<(cat {input.regions} | cut -f1,2)",
+        tpile = config['pre']['threads']['tumor'] - 1   # divide the threads between the processes
     shell:
         "bcftools mpileup {params.qual} -d {params.max_depth} -f {params.ref} "
-        "-R {input.regions} --annotate FORMAT/AD --threads {params.tpile} {input.bam} | "
-        "bcftools query --format \"%CHROM\\t%POS\\t[%AD{{0}}]\\t[%AD{{1}}]\\n\" - | "
-        "pigz -cp {params.tpigz} > {output.pos}"
+        "-R {params.regions} --annotate FORMAT/AD --threads {params.tpile} {input.bam} | "
+        "bcftools query --format \"%CHROM\\t%POS\\t[%AD{{0}}]\\t[%AD{{1}}]\\n\" - > {output.pos}"
 
 
 rule combine_query:
     input:
-        expand("chrompos/{{sample}}_{{type}}.{chrom}.pos.gz", chrom=chrom_list)
+        expand("chrompos/{{sample}}_{{type}}.{chrom}.pos", chrom=chrom_list)
     output:
         pos = "pos/{sample}_{type}.pos.gz"
     threads:

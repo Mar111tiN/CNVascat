@@ -119,5 +119,5 @@ def get_normal_pos(w):
     '''
     returns for a tumor file the corresponding normal pos file
 '   '''
-    t = f"chrompos/{w.sample}_{config['samples']['normal'][0]}.{w.chrom}.pos.gz"
+    t = f"chrompos/{w.sample}_{config['samples']['normal'][0]}.{w.chrom}.pos"
     return t
