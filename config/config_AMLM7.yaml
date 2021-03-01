@@ -1,0 +1,49 @@
+bam_folder: 
+    - /fast/users/szyskam_c/work/results/AMLMono7/bamfinal
+workdir: /fast/users/szyskam_c/scratch/develop/CNVascat # here your results are created
+samples: # here go all your samples
+    sheet: sheets/AMLM7_sheet.csv # sample sheet relative to snakedir
+    tumor:
+        - A  #
+        - R
+    normal:
+        - B  # if more than one, the first normal will be used as default for tumor-sample
+    reads:
+        - R1
+        - R2
+#### ABSOLUTE PATHS ############
+paths:
+    mystatic: /fast/groups/ag_damm/work/ref/
+#### PON #######################
+pon_list: PoN/HAEv7_hg38_NovaSeq/Pon_list.txt # path relative to mystatic path
+#### REF SECTION ###############
+ref:
+    genome: genome/gatk/hg38/hg38.fasta
+    genome_split: genome/gatk/hg38/split
+    dbsnp: dbsnp153
+    dbsnp_split: annotation/gatk/hg38/split
+    bed_file: bed_files/SureSelect/hg38/SS_HAEv7_hg38_Covered2.bed
+    bed_file_pad: bed_files/SureSelect/hg38/SS_HAEv7_hg38_Padded.bed
+cleanup: False
+chrom_with_chr: true # whether bam files contain chr in name
+# RULES
+pre:
+    threads: 
+        normal: 16
+        tumor: 10
+    MAPQ: 20   # I guess this should be lower than the mapping quality used for mpileup or not?
+    Q: 25
+    max_depth: 8000
+ascat:
+    cutoff: 0.4
+    min_reads: 50
+    snp_window_size: 100
+    max_snps_in_window: 2
+    gender: XX
+    ascat_penalty: 25
+    gamma: 1
+    calculate_normal: False
+refphase:
+    merge_min_width: 1e+06
+    max_merge_width: 1e+06
+    gap_fill_width: 2e+06

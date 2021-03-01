@@ -4,7 +4,7 @@ import math
 import pandas as pd
 
 # ############ SETUP ##############################
-configfile: "config/config_P778CNV.yaml"
+configfile: "config/config_AMLM7.yaml"
 # configfile: "configs/config.json"
 workdir: config['workdir']
 snakedir = os.path.dirname(workflow.snakefile)
@@ -28,7 +28,7 @@ include: "includes/ascat.snk"
 wildcard_constraints:
     # eg sample cannot contain _ or / to prevent ambiguous wildcards
     sample = "[^/._]+",
-    tumor = "[AR]",
+    tumor = "[AR][1-3]?",
     normal = "B",
     type = "[^/._]+"
 
